@@ -10,10 +10,10 @@ import (
 
 func NewConnection(host string, port string, conn net.Conn, id uint64, enableDecoding bool) *Connection {
 	return &Connection{
-		host: host,
-		port: port,
-		conn: conn,
-		id: id,
+		host:           host,
+		port:           port,
+		conn:           conn,
+		id:             id,
 		enableDecoding: enableDecoding,
 	}
 }
@@ -36,6 +36,7 @@ func (r *Connection) Handle() error {
 
 	if !r.enableDecoding {
 		// client to server
+
 		go func() {
 			copied, err := io.Copy(mysql, r.conn)
 			if err != nil {
@@ -57,7 +58,10 @@ func (r *Connection) Handle() error {
 
 	handshakePacket := &protocol.InitialHandshakePacket{}
 	err = handshakePacket.Decode(mysql)
-	if err != nil{
+
+	fmt.Printf("salt:: %v", handshakePacket.AuthPluginData)
+
+	if err != nil {
 		log.Printf("Failed ot decode handshake initial packet: %s", err.Error())
 		return err
 	}
@@ -67,26 +71,21 @@ func (r *Connection) Handle() error {
 	res, _ := handshakePacket.Encode()
 
 	written, err := r.conn.Write(res)
-	if err != nil{
+	if err != nil {
 		log.Printf("Failed to write %d: %s", written, err.Error())
 		return err
 	}
 
-	go func() {
-		copied, err := io.Copy(mysql, r.conn)
-		if err != nil {
-			log.Printf("Conection error: [%d] %s", r.id, err.Error())
-		}
+	authorizationPacket := &protocol.AuthorizationPacket{}
+	err = authorizationPacket.Decode(r.conn)
 
-		log.Printf("Connection closed. Bytes copied: [%d] %d", r.id, copied)
-	}()
+	res, _ = authorizationPacket.Encode(handshakePacket.AuthPluginData)
 
-	copied, err := io.Copy(r.conn, mysql)
-	if err != nil {
-		log.Printf("Connection error: [%d] %s", r.id, err.Error())
-	}
+	written, err = mysql.Write(res)
 
-	log.Printf("Connection closed. Bytes copied: [%d] %d", r.id, copied)
+	go io.Copy(mysql, r.conn)
+
+	io.Copy(r.conn, mysql)
 
 	return nil
 }

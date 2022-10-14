@@ -10,12 +10,12 @@ import (
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	proxy := proxy2.NewProxy("127.0.0.1", ":3306", ctx)
+	proxy := proxy2.NewProxy("192.168.0.12", ":3306", ctx)
 	proxy.EnableDecoding()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
-	go func(){
+	go func() {
 		for sig := range c {
 			log.Printf("Signal received %v, stopping and exiting...", sig)
 			cancel()
