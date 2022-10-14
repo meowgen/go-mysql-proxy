@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -80,8 +79,8 @@ func (r *AuthorizationPacket) Decode(conn net.Conn) error {
 
 	r.PacketPart2 = payload[position:]
 
-	fmt.Printf("\n\n--------------------------Decode--------------------------\n\n")
-	dumpByteSlice(data[:header.Length+4])
+	//fmt.Printf("\n\n--------------------------Decode--------------------------\n\n")
+	//dumpByteSlice(data[:header.Length+4])
 
 	return nil
 }
@@ -92,17 +91,16 @@ func (r AuthorizationPacket) Encode(salt []byte) ([]byte, error) {
 	buf = append(buf, r.Username...)
 	pass :=
 		scramblePassword(salt, "proxy")
-	//r.Password
-	fmt.Printf("len is %d", len(pass))
+	//fmt.Printf("len is %d", len(pass))
 	buf = append(buf, byte(len(pass)))
 	buf = append(buf, pass...)
 	authPlugin := []byte("mysql_native_password")
 	buf = append(buf, authPlugin...)
 	buf = append(buf, r.PacketPart2[len(authPlugin)+1:]...)
 
-	p1 := hex.EncodeToString(r.Password)
-	p2 := hex.EncodeToString(pass)
-	fmt.Printf("salt :: %s pass :: %s mypass :: %s", salt, p1, p2)
+	//p1 := hex.EncodeToString(r.Password)
+	//p2 := hex.EncodeToString(pass)
+	//fmt.Printf("salt :: %s pass :: %s mypass :: %s", salt, p1, p2)
 
 	h := PacketHeader{
 		Length:     uint32(len(buf)),
@@ -118,8 +116,8 @@ func (r AuthorizationPacket) Encode(salt []byte) ([]byte, error) {
 	newBuf = append(newBuf, h.SequenceId)
 	newBuf = append(newBuf, buf...)
 
-	fmt.Printf("\n\n--------------------------Encode--------------------------\n\n")
-	dumpByteSlice(newBuf)
+	//fmt.Printf("\n\n--------------------------Encode--------------------------\n\n")
+	//dumpByteSlice(newBuf)
 
 	return newBuf, nil
 
@@ -313,7 +311,7 @@ func scramblePassword(scramble []byte, password string) []byte {
 		return nil
 	}
 	scramble = scramble[:len(scramble)-1]
-	fmt.Printf("соль    %v\n\n\n\n", scramble)
+	//fmt.Printf("соль    %v\n\n\n\n", scramble)
 	// stage1Hash = SHA1(password)
 	crypt := sha1.New()
 	crypt.Write([]byte(password))

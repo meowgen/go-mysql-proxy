@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"fmt"
 	"go-mysql-proxy/protocol"
 	"io"
@@ -59,14 +60,14 @@ func (r *Connection) Handle() error {
 	handshakePacket := &protocol.InitialHandshakePacket{}
 	err = handshakePacket.Decode(mysql)
 
-	fmt.Printf("salt:: %v", handshakePacket.AuthPluginData)
+	//fmt.Printf("salt:: %v", handshakePacket.AuthPluginData)
 
 	if err != nil {
 		log.Printf("Failed ot decode handshake initial packet: %s", err.Error())
 		return err
 	}
 
-	fmt.Printf("InitialHandshakePacket:\n%s\n", handshakePacket)
+	//fmt.Printf("InitialHandshakePacket:\n%s\n", handshakePacket)
 
 	res, _ := handshakePacket.Encode()
 
@@ -83,9 +84,62 @@ func (r *Connection) Handle() error {
 
 	written, err = mysql.Write(res)
 
-	go io.Copy(mysql, r.conn)
+	//go io.Copy(mysql, r.conn)
+	//
+	//io.Copy(r.conn, mysql)
+	var b bytes.Buffer
+	// Copy bytes from client to server and requestParser
+	go io.Copy(io.MultiWriter(mysql, &Request{b}), r.conn)
 
-	io.Copy(r.conn, mysql)
+	// Copy bytes from server to client and responseParser
+	var b1 bytes.Buffer
+	io.Copy(io.MultiWriter(r.conn, &Response{b1}), mysql)
 
 	return nil
+}
+
+type Request struct {
+	buf bytes.Buffer
+}
+
+type Response struct {
+	buf bytes.Buffer
+}
+
+func (req *Request) Write(packet []byte) (n int, err error) {
+
+	if len(packet) < 6 {
+		fmt.Printf("\nПроизошёл выход.\n")
+		return len(packet), nil
+	}
+
+	if packet[4] != 3 {
+		req.buf.Write(packet[5:])
+	} else {
+		req.buf.Write(packet[7:])
+	}
+
+	fmt.Printf("\nКоманда: %v", &req.buf)
+
+	//fmt.Printf("\np= %v", packet)
+
+	req.buf.Reset()
+	return len(packet), nil
+}
+
+func (res *Response) Write(packet []byte) (n int, err error) {
+
+	res.buf.Write(packet[7:])
+
+	if packet[4] != 0xff {
+		fmt.Printf("\nКоманда успешно выполнилась.")
+		res.buf.Reset()
+		return len(packet), nil
+	}
+	if len(packet) > 11 {
+		fmt.Printf("\nОтвет от сервера: %v\n", &res.buf)
+		res.buf.Reset()
+	}
+
+	return len(packet), nil
 }
